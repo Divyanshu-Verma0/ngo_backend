@@ -12,6 +12,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/agencies', trainingAgencyRoutes);
 router.use('/candidates', trainingCandidateRoutes);
+router.use('/employer')
 
 // Health check endpoint
 router.get('/health', (req, res) => {
