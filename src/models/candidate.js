@@ -53,7 +53,7 @@ const candidateSchema = new mongoose.Schema({
     },
     aadharFile: {
         type: String, // Path to the file handled by multer
-        required: true,
+        required: false,
     },
     aadharNumber: {
         type: String,
@@ -61,7 +61,7 @@ const candidateSchema = new mongoose.Schema({
     },
     paymentReference: {
         type: String, // This will store the file path after multer uploads the file
-        required: true,
+        required: false,
     },
     status: {
         type: String,

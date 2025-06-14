@@ -1,4 +1,4 @@
-export function candidateDataFormat(candidateData) {
+function candidateDataFormat(candidateData) {
     try {
         const formattedData = {
             name: candidateData.name,
@@ -26,7 +26,7 @@ export function candidateDataFormat(candidateData) {
     }
 }
 
-export function employerDataFormat(employerData) {
+function employerDataFormat(employerData) {
     try {
         const formattedData = {
             companyName: employerData.companyName,
@@ -54,7 +54,7 @@ export function employerDataFormat(employerData) {
     }
 }
 
-export function trainingProviderDataFormat(trainingProviderData) {
+function trainingProviderDataFormat(trainingProviderData) {
     try {
         const formattedData = {
             agencyName: trainingProviderData.agencyName,
@@ -80,3 +80,5 @@ export function trainingProviderDataFormat(trainingProviderData) {
         throw error;
     }
 }
+
+module.exports = { candidateDataFormat, employerDataFormat, trainingProviderDataFormat };
