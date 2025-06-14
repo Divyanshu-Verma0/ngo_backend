@@ -51,7 +51,7 @@ class AuthController {
 
   static async registerCandidate(req, res, next) {
     try {
-      const result = await AuthService.registerCandidate(req.body);
+     const result = await AuthService.registerCandidate(req.body, req.files);
       ResponseHandler.created(res, result, 'Candidate registration request submitted');
     } catch (error) {
       next(error);
@@ -60,7 +60,7 @@ class AuthController {
 
   static async registerEmployer(req, res, next) {
     try {
-      const result = await AuthService.registerEmployer(req.body);
+      const result = await AuthService.registerEmployer(req.body, req.file);
       ResponseHandler.created(res, result, 'Employer registration request submitted');
     } catch (error) {
       next(error);
@@ -69,7 +69,7 @@ class AuthController {
 
   static async registerTrainingProvider(req, res, next) {
     try {
-      const result = await AuthService.registerTrainingProvider(req.body);
+       const result = await AuthService.registerTrainingProvider(req.body, req.file);
       ResponseHandler.created(res, result, 'Training Provider registration request submitted');
     } catch (error) {
       next(error);
