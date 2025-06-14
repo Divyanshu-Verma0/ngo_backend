@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const config = require('./config/environment');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
@@ -15,6 +16,9 @@ app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
   credentials: true
 }));
+
+// Cookie parser middleware
+app.use(cookieParser());
 
 // Rate limiting
 const limiter = rateLimit({

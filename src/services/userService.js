@@ -1,19 +1,18 @@
-const { supabaseAdmin } = require('../config/database');
+const Auth = require('../models/auth');
 const { handleError, logSuccess } = require('../utils/errorHandler');
 const { ERROR_TYPES } = require('../config/constants');
 
 class UserService {
+
   static async getAllUsers() {
     try {
-      const { data, error } = await supabaseAdmin
-        .from('users')
-        .select('*');
+      const users = await Auth.find();
 
-      if (error) {
-        throw handleError(ERROR_TYPES.DATABASE_ERROR, error.message);
+      if (users.length === 0) {
+        throw handleError(ERROR_TYPES.NOT_FOUND_ERROR, 'Users not found');
       }
 
-      logSuccess('Users retrieved successfully', { count: data.length });
+      logSuccess('Users retrieved successfully');
       return data;
     } catch (error) {
       throw error;
@@ -22,13 +21,9 @@ class UserService {
 
   static async getUserById(userId) {
     try {
-      const { data, error } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const user = await Auth.findById(userId);
 
-      if (error) {
+      if (!user) {
         throw handleError(ERROR_TYPES.NOT_FOUND_ERROR, 'User not found');
       }
 
