@@ -9,9 +9,11 @@ const Auth = require('../models/auth');
 const JWT_SECRET = process.env.JWT_SECRET;
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { candidateDataFormat, employerDataFormat, trainingProviderDataFormat } = require('../helpers/dataformat');
+const CloudinaryService = require('../utils/cloudinary');
 
 class AuthService {
-    //signIn
+  //signIn
   static async signIn(userData) {
     try {
       const { email, password } = userData;
@@ -93,7 +95,7 @@ class AuthService {
     }
   }
 
-  static async registerCandidate(candidateData) {
+  static async registerCandidate(candidateData, files) {
     try {
       const { email } = candidateData;
 
@@ -103,23 +105,48 @@ class AuthService {
         throw handleError(ERROR_TYPES.AUTH_ERROR, 'Email not verified');
       }
 
-      // Create Candidate record (status PENDING)
-      const candidate = new Candidate({
-        ...candidateData,
-        status: 'PENDING',
-      });
+      // Format candidate data
+      const formattedData = candidateDataFormat(candidateData);
 
-      await candidate.save();
+      // Create candidate first to get ID
+      const candidate = new Candidate(formattedData);
+      const savedCandidate = await candidate.save();
+
+      // Upload files to Cloudinary
+      let fileUrls = {};
+      try {
+        if (files) {
+          fileUrls = await CloudinaryService.uploadCandidateFiles(files, savedCandidate._id.toString());
+        }
+
+        // Update candidate with file URLs
+        if (fileUrls.aadharFile) {
+          savedCandidate.aadharFile = fileUrls.aadharFile;
+        }
+        if (fileUrls.paymentReference) {
+          savedCandidate.paymentReference = fileUrls.paymentReference;
+        }
+
+        await savedCandidate.save();
+      } catch (fileError) {
+        // Log file upload error but don't fail registration
+        console.error('File upload error:', fileError.message);
+        // You might want to set a flag or status indicating file upload failed
+      }
 
       logSuccess('Candidate registration request created', { email });
 
-      return { message: 'Candidate registration request submitted' };
+      return {
+        message: 'Candidate registration request submitted',
+        candidateId: savedCandidate._id,
+        filesUploaded: Object.keys(fileUrls).length > 0
+      };
     } catch (error) {
       throw error;
     }
   }
 
-  static async registerEmployer(employerData) {
+  static async registerEmployer(employerData, file) {
     try {
       const { email } = employerData;
 
@@ -129,23 +156,40 @@ class AuthService {
         throw handleError(ERROR_TYPES.AUTH_ERROR, 'Email not verified');
       }
 
-      // Create Employer record (status PENDING)
-      const employer = new Employer({
-        ...employerData,
-        status: 'PENDING',
-      });
+      // Format employer data
+      const formattedData = employerDataFormat(employerData);
 
-      await employer.save();
+      // Create employer record
+      const employer = new Employer(formattedData);
+      const savedEmployer = await employer.save();
+
+      // Upload file to Cloudinary
+      try {
+        if (file) {
+          const fileUrl = await CloudinaryService.uploadEmployerDocument(file, savedEmployer._id.toString());
+          if (fileUrl) {
+            savedEmployer.companyDocFile = fileUrl;
+            await savedEmployer.save();
+          }
+        }
+      } catch (fileError) {
+        // Log file upload error but don't fail registration
+        console.error('File upload error:', fileError.message);
+      }
 
       logSuccess('Employer registration request created', { email });
 
-      return { message: 'Employer registration request submitted' };
+      return {
+        message: 'Employer registration request submitted',
+        employerId: savedEmployer._id,
+        fileUploaded: !!savedEmployer.companyDocFile
+      };
     } catch (error) {
       throw error;
     }
   }
 
-  static async registerTrainingProvider(trainingProviderData) {
+  static async registerTrainingProvider(trainingProviderData, file) {
     try {
       const { email } = trainingProviderData;
 
@@ -155,17 +199,34 @@ class AuthService {
         throw handleError(ERROR_TYPES.AUTH_ERROR, 'Email not verified');
       }
 
-      // Create Training Provider record (status PENDING)
-      const trainingProvider = new TrainingProvider({
-        ...trainingProviderData,
-        status: 'PENDING',
-      });
+      // Format training provider data
+      const formattedData = trainingProviderDataFormat(trainingProviderData);
 
-      await trainingProvider.save();
+      // Create training provider record
+      const trainingProvider = new TrainingProvider(formattedData);
+      const savedProvider = await trainingProvider.save();
+
+      // Upload file to Cloudinary
+      try {
+        if (file) {
+          const fileUrl = await CloudinaryService.uploadTrainingProviderDocument(file, savedProvider._id.toString());
+          if (fileUrl) {
+            savedProvider.agencyDocFile = fileUrl;
+            await savedProvider.save();
+          }
+        }
+      } catch (fileError) {
+        // Log file upload error but don't fail registration
+        console.error('File upload error:', fileError.message);
+      }
 
       logSuccess('Training Provider registration request created', { email });
 
-      return { message: 'Training Provider registration request submitted' };
+      return {
+        message: 'Training Provider registration request submitted',
+        providerId: savedProvider._id,
+        fileUploaded: !!savedProvider.agencyDocFile
+      };
     } catch (error) {
       throw error;
     }
