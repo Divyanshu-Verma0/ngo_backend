@@ -46,11 +46,7 @@ class AuthService {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
       // Save OTP to the EmailVerification collection
-      await EmailVerification.findOneAndUpdate(
-        { email },
-        { otp, status: 'PENDING' },
-        { upsert: true, new: true }
-      );
+      await new EmailVerification({ email, otp }).save();
 
       const transporter = nodemailer.createTransport({
         service: 'gmail',

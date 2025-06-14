@@ -7,8 +7,13 @@ const config = require('./config/environment');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
-
+const Database = require('./config/database');
 const app = express();
+const dotenv = require('dotenv');
+dotenv.config();
+
+// Connect to database
+Database.connect();
 
 // Security middleware
 app.use(helmet());

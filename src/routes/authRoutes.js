@@ -15,6 +15,7 @@ router.post('/login', AuthController.signIn);
 router.post('/logout', AuthController.logOut);
 
 // Email Verification
+router.post('/send-verification-email', AuthController.sendVerificationEmail);
 router.post('/verify-email', AuthController.verifyEmail);
 
 // Candidate Registration (with file uploads)
