@@ -31,3 +31,7 @@
 {"context":{"count":4},"level":"info","message":"Users retrieved successfully","service":"ngo-backend","timestamp":"2025-06-08T19:29:07.716Z"}
 {"context":{"dataLength":4,"statusCode":200},"level":"info","message":"Users retrieved successfully","service":"ngo-backend","timestamp":"2025-06-08T19:29:07.716Z"}
 {"level":"info","message":"SIGINT received, shutting down gracefully","service":"ngo-backend","timestamp":"2025-06-08T19:29:51.555Z"}
+{"level":"info","message":"🚀 NGO Backend Server running on port 3000","service":"ngo-backend","timestamp":"2025-06-14T15:38:40.315Z"}
+{"level":"info","message":"📝 Environment: development","service":"ngo-backend","timestamp":"2025-06-14T15:38:40.318Z"}
+{"level":"info","message":"🔗 API Base URL: http://localhost:3000/api","service":"ngo-backend","timestamp":"2025-06-14T15:38:40.318Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","service":"ngo-backend","timestamp":"2025-06-14T15:38:45.135Z"}

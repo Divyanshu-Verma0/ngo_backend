@@ -1,271 +1,175 @@
-const { supabaseAdmin, supabaseAuth } = require("../config/database");
-const { handleError, logSuccess } = require("../utils/errorHandler");
-const { ERROR_TYPES } = require("../config/constants");
+const EmailVerification = require('../models/emailVerification');
+const Candidate = require('../models/candidate');
+const { Employer } = require('../models/employer');
+const TrainingProvider = require('../models/trainingProvider');
+const nodemailer = require('nodemailer');
+const { handleError, logSuccess } = require('../utils/errorHandler');
+const { ERROR_TYPES } = require('../config/constants');
+const Auth = require('../models/auth');
+const JWT_SECRET = process.env.JWT_SECRET;
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 class AuthService {
-    // static async signUp(userData) {
-    //   try {
-    //     const { email, password, username, first_name, middle_name, last_name, mobile, address, organization } = userData;
+    //signIn
+  static async signIn(userData) {
+    try {
+      const { email, password } = userData;
 
-    //     const { data: signUpData, error: signUpError } = await supabaseAuth.auth.signUp({
-    //       email,
-    //       password,
-    //       options: {
-    //         data: { username }
-    //       }
-    //     });
+      const user = await Auth.findOne({ email });
+      if (!user) {
+        throw handleError(ERROR_TYPES.AUTHENTICATION_ERROR, 'Invalid credentials');
+      }
 
-    //     if (signUpError) {
-    //       throw handleError(ERROR_TYPES.AUTHENTICATION_ERROR, signUpError.message);
-    //     }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        throw handleError(ERROR_TYPES.AUTHENTICATION_ERROR, 'Invalid credentials');
+      }
 
-    //     const userId = signUpData.user.id;
+      // Generate JWT token
+      const token = jwt.sign(
+        { id: user._id, role: user.role },
+        JWT_SECRET,
+        { expiresIn: '1d' } // Token valid for 1 day
+      );
 
-    //     const { error: insertError, data: userRecord } = await supabaseAdmin
-    //       .from('users')
-    //       .insert([{
-    //         id: userId,
-    //         username,
-    //         first_name,
-    //         middle_name,
-    //         last_name,
-    //         mobile,
-    //         email,
-    //         address,
-    //         organization
-    //       }])
-    //       .select()
-    //       .single();
-
-    //     if (insertError) {
-    //       throw handleError(ERROR_TYPES.DATABASE_ERROR, insertError.message);
-    //     }
-
-    //     logSuccess('User created successfully', { userId, email });
-    //     return { user: userRecord, session: signUpData.session };
-    //   } catch (error) {
-    //     throw error;
-    //   }
-    // }
-
-    static async logIn(email, password) {
-        try {
-            const { data, error } = await supabaseAuth.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            if (error) {
-                throw handleError(
-                    ERROR_TYPES.AUTHENTICATION_ERROR,
-                    error.message
-                );
-            }
-
-            logSuccess("User signed in successfully", {
-                userId: data.user.id,
-                email,
-            });
-            return data;
-        } catch (error) {
-            throw error;
-        }
+      return { user, token };
+    } catch (error) {
+      throw error;
     }
+  }
+  // Email verification service
+  static async sendVerificationEmail(email) {
+    try {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    static async registerCandidate(candidateData) {
-        try {
-            const {
-                email,
-                phone,
-                fullName,
-                fatherName,
-                address,
-                locality,
-                state,
-                city,
-                postalCode,
-                qualification,
-                skillsInterested,
-                category,
-                aadharNumber,
-                knowsSomeoneInPdf,
-                isInterestedForOnline,
-                aadharImageUrl,
-            } = candidateData;
+      // Save OTP to the EmailVerification collection
+      await EmailVerification.findOneAndUpdate(
+        { email },
+        { otp, status: 'PENDING' },
+        { upsert: true, new: true }
+      );
 
-            const { error, data } = await supabaseAdmin
-                .from("candidates")
-                .insert([
-                    {
-                        full_name: fullName,
-                        father_name: fatherName,
-                        address,
-                        locality,
-                        state,
-                        city,
-                        postal_code: postalCode,
-                        phone,
-                        email,
-                        qualification,
-                        skills_interested: skillsInterested,
-                        category,
-                        aadhar_number: aadharNumber,
-                        knows_someone_in_pdf: knowsSomeoneInPdf,
-                        is_interested_for_online: isInterestedForOnline,
-                        aadhar_image_url: aadharImageUrl,
-                        status: "pending",
-                    },
-                ])
-                .select()
-                .single();
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
 
-            if (error)
-                throw handleError(ERROR_TYPES.DATABASE_ERROR, error.message);
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Email Verification OTP',
+        text: `Your OTP is: ${otp}`,
+      });
 
-            logSuccess("Candidate registered successfully", { email });
-            return data;
-        } catch (error) {
-            throw error;
-        }
+      logSuccess('Verification email sent successfully', { email });
+
+      return { message: 'OTP sent successfully', email };
+    } catch (error) {
+      throw handleError(ERROR_TYPES.INTERNAL_ERROR, error.message);
     }
+  }
 
-    static async registerAgency(agencyData) {
-        try {
-            const { email, password } = agencyData;
+  // Verify OTP
+  static async verifyEmailOtp(email, otp) {
+    try {
+      const verification = await EmailVerification.findOne({ email });
 
-            const { data: signUpData, error: signUpError } =
-                await supabaseAuth.auth.signUp({
-                    email,
-                    password,
-                });
+      if (!verification || verification.otp !== otp) {
+        throw handleError(ERROR_TYPES.VALIDATION_ERROR, 'Invalid OTP');
+      }
 
-            if (signUpError)
-                throw handleError(
-                    ERROR_TYPES.AUTHENTICATION_ERROR,
-                    signUpError.message
-                );
+      verification.status = 'VERIFIED';
+      await verification.save();
 
-            const agencyId = signUpData.user.id;
+      logSuccess('Email verified successfully', { email });
 
-            const {
-                agencyName,
-                agencyRegNo,
-                agencyAddress,
-                agencyLocality,
-                agencyState,
-                agencyCity,
-                agencyPostalCode,
-                cPName,
-                cPDesignation,
-                cPEmail,
-                cPPhone,
-                offeredPrograms,
-                agencyRegDocumentUrl,
-            } = agencyData;
-
-            const { error, data } = await supabaseAdmin
-                .from("agencies")
-                .insert([
-                    {
-                        id: agencyId,
-                        agency_name: agencyName,
-                        registration_no: agencyRegNo,
-                        registration_document_url: agencyRegDocumentUrl,
-                        address: agencyAddress,
-                        locality: agencyLocality,
-                        state: agencyState,
-                        city: agencyCity,
-                        postal_code: agencyPostalCode,
-                        contact_person_name: cPName,
-                        contact_person_designation: cPDesignation,
-                        contact_person_email: cPEmail,
-                        contact_person_phone: cPPhone,
-                        offered_programs: offeredPrograms,
-                        status: "pending",
-                    },
-                ])
-                .select()
-                .single();
-
-            if (error)
-                throw handleError(ERROR_TYPES.DATABASE_ERROR, error.message);
-
-            logSuccess("Agency registered successfully", { email });
-            return { user: data, session: signUpData.session };
-        } catch (error) {
-            throw error;
-        }
+      return { message: 'Email verified successfully' };
+    } catch (error) {
+      throw error;
     }
+  }
 
-    static async registerEmployer(employerData) {
-        try {
-            const { email, password } = employerData;
+  static async registerCandidate(candidateData) {
+    try {
+      const { email } = candidateData;
 
-            const { data: signUpData, error: signUpError } =
-                await supabaseAuth.auth.signUp({
-                    email,
-                    password,
-                });
+      // Check if email is verified
+      const verification = await EmailVerification.findOne({ email });
+      if (!verification || verification.status !== 'VERIFIED') {
+        throw handleError(ERROR_TYPES.AUTH_ERROR, 'Email not verified');
+      }
 
-            if (signUpError)
-                throw handleError(
-                    ERROR_TYPES.AUTHENTICATION_ERROR,
-                    signUpError.message
-                );
+      // Create Candidate record (status PENDING)
+      const candidate = new Candidate({
+        ...candidateData,
+        status: 'PENDING',
+      });
 
-            const employerId = signUpData.user.id;
+      await candidate.save();
 
-            const {
-                companyName,
-                companyRegNo,
-                companyAddress,
-                companyLocality,
-                companyState,
-                companyCity,
-                companyPostalCode,
-                industry,
-                cPName,
-                cPDesignation,
-                cPEmail,
-                cPPhone,
-                offeredJobs,
-                companyRegDocumentUrl,
-            } = employerData;
+      logSuccess('Candidate registration request created', { email });
 
-            const { error, data } = await supabaseAdmin
-                .from("employers")
-                .insert([
-                    {
-                        id: employerId,
-                        company_name: companyName,
-                        registration_no: companyRegNo,
-                        registration_document_url: companyRegDocumentUrl,
-                        address: companyAddress,
-                        locality: companyLocality,
-                        state: companyState,
-                        city: companyCity,
-                        postal_code: companyPostalCode,
-                        industry,
-                        contact_person_name: cPName,
-                        contact_person_designation: cPDesignation,
-                        contact_person_email: cPEmail,
-                        contact_person_phone: cPPhone,
-                        offered_jobs: offeredJobs,
-                        status: "pending",
-                    },
-                ])
-                .select()
-                .single();
-
-            if (error)
-                throw handleError(ERROR_TYPES.DATABASE_ERROR, error.message);
-
-            logSuccess("Employer registered successfully", { email });
-            return { user: data, session: signUpData.session };
-        } catch (error) {
-            throw error;
-        }
+      return { message: 'Candidate registration request submitted' };
+    } catch (error) {
+      throw error;
     }
+  }
+
+  static async registerEmployer(employerData) {
+    try {
+      const { email } = employerData;
+
+      // Check if email is verified
+      const verification = await EmailVerification.findOne({ email });
+      if (!verification || verification.status !== 'VERIFIED') {
+        throw handleError(ERROR_TYPES.AUTH_ERROR, 'Email not verified');
+      }
+
+      // Create Employer record (status PENDING)
+      const employer = new Employer({
+        ...employerData,
+        status: 'PENDING',
+      });
+
+      await employer.save();
+
+      logSuccess('Employer registration request created', { email });
+
+      return { message: 'Employer registration request submitted' };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async registerTrainingProvider(trainingProviderData) {
+    try {
+      const { email } = trainingProviderData;
+
+      // Check if email is verified
+      const verification = await EmailVerification.findOne({ email });
+      if (!verification || verification.status !== 'VERIFIED') {
+        throw handleError(ERROR_TYPES.AUTH_ERROR, 'Email not verified');
+      }
+
+      // Create Training Provider record (status PENDING)
+      const trainingProvider = new TrainingProvider({
+        ...trainingProviderData,
+        status: 'PENDING',
+      });
+
+      await trainingProvider.save();
+
+      logSuccess('Training Provider registration request created', { email });
+
+      return { message: 'Training Provider registration request submitted' };
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 module.exports = AuthService;
